@@ -1,5 +1,4 @@
 use glam::{Vec2, Vec3, Vec4, vec2, vec3, vec4};
-use rayon::prelude::*;
 use std::cmp::min_by;
 use std::fs::{self};
 use std::io::Write;
