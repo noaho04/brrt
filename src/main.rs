@@ -1,5 +1,6 @@
 use glam::{Vec2, Vec3, Vec4, vec2, vec3, vec4};
-use std::f32::consts::PI;
+use rayon::prelude::*;
+use std::cmp::min_by;
 use std::fs::{self};
 use std::io::Write;
 use std::mem;
@@ -92,8 +93,8 @@ fn refract(i: Vec3, n: Vec3, refractive_index: f32) -> Vec3 {
     }
     let eta = etai / etat;
     let k = 1.0 - eta*eta*(1.0 - cosi*cosi);
-    if (k < 0.0) { return Vec3::ZERO };
-    i*eta + m*(eta * cosi - k.sqrt())
+
+    if (k < 0.0) { Vec3::ZERO } else { i*eta + m*(eta * cosi - k.sqrt()) }
 }
 
 fn scene_intersect(orig: Vec3, dir: Vec3, spheres: &Vec<Sphere>, hit: &mut Vec3, n: &mut Vec3, material: &mut Material) -> bool {
@@ -108,7 +109,24 @@ fn scene_intersect(orig: Vec3, dir: Vec3, spheres: &Vec<Sphere>, hit: &mut Vec3,
         }
     }
 
-    spheres_dist < 1000.0
+    let mut checkerboard_dist = f32::MAX;
+    if (dir.y.abs() > 1e-3) {
+        let d = -(orig.y+4.0)/dir.y;
+        let pt = orig + dir * d;
+        if (d>0.0 && pt.x.abs()<10.0 && pt.z<(-10.0) && pt.z>-30.0 && d<spheres_dist) {
+            checkerboard_dist = d;
+            *hit = pt;
+            *n = vec3(0.0,1.0,0.0);
+            let checked = ((hit.x * 0.5).floor() as i32
+                         ^ (hit.z * 0.5).floor() as i32) & 1 != 0;
+            material.diffuse_color = if checked {
+                Vec3::splat(0.3)
+            } else {
+                vec3(0.3,0.2,0.1)
+            }
+        }
+    }
+    spheres_dist.min(checkerboard_dist) < 1000.0
 }
 
 fn cast_ray(orig: Vec3, dir: Vec3, spheres: &Vec<Sphere>, lights: &Vec<Light>, depth: Option<u32>) -> Vec3 {
